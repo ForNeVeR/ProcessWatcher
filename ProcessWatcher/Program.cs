@@ -1,49 +1,71 @@
-﻿﻿using System;
+﻿using System;
+using System.Globalization;
 using System.Management;
+using System.Threading.Tasks;
 
 namespace ProcessWatcher
 {
     public static class Program
     {
-        private static string GetProcessCommandLine(uint processId)
+        private static void ReportProperty(string name, string value, ConsoleColor valueColor = ConsoleColor.White)
         {
-            var query = new WqlObjectQuery($"select CommandLine from Win32_Process where ProcessId = {processId}");
-            using (var searcher = new ManagementObjectSearcher(query))
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.Write($"{name}: ");
+            Console.ForegroundColor = valueColor;
+            Console.WriteLine(value);
+        }
+        
+        private static void ReportProperty(string name, PreciseValue<string> value, ConsoleColor valueColor = ConsoleColor.White)
+        {
+            var valueString = value.Value ?? "[UNKNOWN]";
+            var reportedValue = value.IsPrecise ? valueString : $"(?) {valueString}";
+            ReportProperty(name, reportedValue, value.IsPrecise ? valueColor : ConsoleColor.Gray);
+        }
+
+        
+        private static readonly object OutputLog = new object();
+        private static void ReportEvent(string eventDescription, ProcessInfo processInfo)
+        {
+            Task.Run(() =>
             {
-                using (var result = searcher.Get())
+                lock (OutputLog)
                 {
-                    foreach (var x in result)
-                    {
-                        return Convert.ToString(x["CommandLine"]);
-                    }
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine("---");
+                    
+                    ReportProperty("Event", eventDescription);
+                    ReportProperty("Process id", processInfo.ProcessId.ToString(CultureInfo.InvariantCulture));
+                    ReportProperty("Process name", processInfo.ProcessName);
+                    ReportProperty("Command line", processInfo.CommandLine);
+                    
+                    Console.ForegroundColor = ConsoleColor.DarkGreen;
+                    Console.WriteLine("---");
+                    Console.WriteLine();
                 }
+            });
+        }
+        
+        public static void Main(string[] args)
+        {
+            if (args.Length > 0 && args[0] == "--help")
+            {
+                Console.WriteLine("Arguments: [--precise] | --imprecise");
+                return;
+            }
+            
+            if (args.Length == 0 || args[0] == "--precise")
+            {
+                Console.WriteLine("Starting watch in PRECISE mode");
+                using var _ = PreciseWatcher.StartNew(pi => ReportEvent("Win32_ProcessStartTrace", pi));
+            }
+            else
+            {
+                Console.WriteLine("Starting watch in IMPRECISE mode");
+                using var _ = ImpreciseWatcher.StartNew(pi => ReportEvent("Win32_Process creation", pi));
             }
 
-            return "[NOT DETERMINED]";
-        }
-
-        private static ManagementEventWatcher CreateWatcher()
-        {
-            var watcher = new ManagementEventWatcher(new WqlEventQuery("select * from Win32_ProcessStartTrace"));
-            watcher.EventArrived += (_, e) =>
-            {
-                var properties = e.NewEvent.Properties;
-                var processId = Convert.ToUInt32(properties["ProcessID"].Value);
-                var processName = Convert.ToString(properties["ProcessName"].Value);
-                var commandLine = GetProcessCommandLine(processId);
-                Console.WriteLine($"Process {processId}: {processName} {commandLine}");
-            };
-            return watcher;
-        }
-
-        public static void Main()
-        {
-            using (var watcher = CreateWatcher())
-            {
-                Console.WriteLine("Starting the watch. Press Enter to exit");
-                watcher.Start();
-                Console.ReadLine();
-            }
+            Console.WriteLine("Press Enter to exit");
+            Console.ReadLine();
         }
     }
 }
