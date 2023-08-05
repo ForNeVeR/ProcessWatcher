@@ -47,7 +47,7 @@ namespace ProcessWatcher
         
         public static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == "--help")
+            if (args.Length > 0 && args[0] == "--help" || args[0] == "/?")
             {
                 Console.WriteLine("Arguments: [--precise] | --imprecise");
                 return;
@@ -58,10 +58,15 @@ namespace ProcessWatcher
                 Console.WriteLine("Starting watch in PRECISE mode");
                 using var _ = PreciseWatcher.StartNew(pi => ReportEvent("Win32_ProcessStartTrace", pi));
             }
-            else
+            else if (args.Length == 0)
             {
                 Console.WriteLine("Starting watch in IMPRECISE mode");
                 using var _ = ImpreciseWatcher.StartNew(pi => ReportEvent("Win32_Process creation", pi));
+            }
+            else
+            {
+                Console.WriteLine($"Unrecognized arguments: [{string.Join(' ', args)}]");
+                return;
             }
 
             Console.WriteLine("Press Enter to exit");
