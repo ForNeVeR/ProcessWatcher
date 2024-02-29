@@ -47,7 +47,7 @@ namespace ProcessWatcher
         
         public static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == "--help" || args[0] == "/?")
+            if (args.Length > 0 && (args[0] == "--help" || args[0] == "/?"))
             {
                 Console.WriteLine("Arguments: [--precise] | --imprecise");
                 return;
