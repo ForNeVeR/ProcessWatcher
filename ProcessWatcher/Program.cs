@@ -58,7 +58,7 @@ namespace ProcessWatcher
                 Console.WriteLine("Starting watch in PRECISE mode");
                 using var _ = PreciseWatcher.StartNew(pi => ReportEvent("Win32_ProcessStartTrace", pi));
             }
-            else if (args.Length == 0)
+            else if (args.Length == 1 && args[0] == "--imprecise")
             {
                 Console.WriteLine("Starting watch in IMPRECISE mode");
                 using var _ = ImpreciseWatcher.StartNew(pi => ReportEvent("Win32_Process creation", pi));
